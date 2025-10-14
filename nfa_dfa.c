@@ -1,241 +1,180 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// --- Struct Definitions ---
+// --- Structures ---
 
-struct node {
-    int nst;
-    struct node *link;
+// Node for storing NFA transitions
+struct Node {
+    int to;
+    struct Node* next;
 };
 
-struct node1 {
-    int nst[20];
-    struct node *link;
+// A DFA state (set of NFA states)
+struct DFAState {
+    int states[20]; // states[i] == 1 means NFA state q_i is included
 };
 
-// --- Global Variables and Function Prototypes ---
+// --- Global Variables ---
 
-void insert(int, char, int);
-int findalpha(char);
-void findfinalstate(void);
-int insertdfastate(struct node1);
-int compare(struct node1 a, struct node1 b);
-void printnewstate(struct node1);
+int numStates, numAlphabets, numFinalStates, numTransitions;
+int startState;
+char alphabet[20];
+int finalStates[20];
+struct Node* transition[20][20] = {NULL}; // NFA transitions table
+struct DFAState dfaStates[50];            // all discovered DFA states
+int dfaCount = 0;                         // number of DFA states found
 
-int noalpha, nostate, notransition, nofinal, start;
-static int set[20], nostate_count, buffer[20]; // 'nostate_count' and 'buffer' seem unused in the provided code
-int finalstate[20]; 
-int complete = -1; // Initialized to -1 in main
-char alphabet[20], c;
-static int eclosure[20][20] = {0}; // Appears unused but defined
-struct node1 hash[20];
-struct node *transition[20][20] = {NULL};
+// --- Helper Functions ---
 
-// --- Function Definitions ---
-
-int compare(struct node1 a, struct node1 b) {
-    int i;
-    for (i = 1; i <= nostate; i++) {
-        if (a.nst[i] != b.nst[i]) {
-            return 0;
-        }
-    }
-    return 1;
+int findAlphabetIndex(char c) {
+    for (int i = 0; i < numAlphabets; i++)
+        if (alphabet[i] == c) return i;
+    return -1;
 }
 
-void insert(int r, char c, int s) {
-    int j;
-    struct node *temp;
-
-    j = findalpha(c);
-    if (j == 999) {
-        printf("error\\n");
-        exit(0);
+void addTransition(int from, char symbol, int to) {
+    int idx = findAlphabetIndex(symbol);
+    if (idx == -1) {
+        printf("Invalid symbol: %c\n", symbol);
+        exit(1);
     }
-
-    temp = (struct node *)malloc(sizeof(struct node));
-    temp->nst = s;
-    temp->link = transition[r][j];
-    transition[r][j] = temp;
+    struct Node* newNode = (struct Node*)malloc(sizeof(struct Node));
+    newNode->to = to;
+    newNode->next = transition[from][idx];
+    transition[from][idx] = newNode;
 }
 
-int findalpha(char c) {
-    int i;
-    for (i = 0; i < noalpha; i++) {
-        if (alphabet[i] == c) {
-            return i;
-        }
-    }
-    return 999;
-}
-
-void findfinalstate() {
-    int i, j, k, t;
-
-    for (i = 0; i <= complete; i++) {
-        for (j = 1; j <= nostate; j++) {
-            if (hash[i].nst[j]) {
-                for (k = 0; k < nofinal; k++) {
-                    if (hash[i].nst[j] == finalstate[k]) {
-                        printnewstate(hash[i]);
-                        printf("\\t");
-                        j = nostate; // Exit inner loop (j)
-                        break; // Exit middle loop (k)
-                    }
-                }
-            }
-        }
-    }
-}
-
-void printnewstate(struct node1 state) {
-    int j;
+void printState(struct DFAState st) {
     printf("{");
-
-    for (j = 1; j <= nostate; j++) {
-        if (state.nst[j] != 0) {
-            printf("q%d", state.nst[j]);
+    int first = 1;
+    for (int i = 1; i <= numStates; i++) {
+        if (st.states[i]) {
+            if (!first) printf(",");
+            printf("q%d", i);
+            first = 0;
         }
     }
-    printf("}\\t");
+    printf("}");
 }
 
-int insertdfastate(struct node1 newstate) {
-    int i;
-    for (i = 0; i <= complete; i++) {
-        if (compare(hash[i], newstate)) {
-            return 0;
-        }
-    }
-
-    complete++;
-    hash[complete] = newstate;
+int areSame(struct DFAState a, struct DFAState b) {
+    for (int i = 1; i <= numStates; i++)
+        if (a.states[i] != b.states[i]) return 0;
     return 1;
 }
 
-// --- Main Function ---
+int addDFAState(struct DFAState newState) {
+    for (int i = 0; i < dfaCount; i++)
+        if (areSame(dfaStates[i], newState)) return 0;
+    dfaStates[dfaCount++] = newState;
+    return 1;
+}
 
-void main() {
-    int i, j, k, t, n, r, s, m; // Added missing declarations r, s, m
-    struct node *temp;
-    struct node1 newstate = {0}, tmpstate = {0};
+// --- Main Program ---
 
-    // --- Input NFA Parameters ---
-    printf("\\n\\nEnter No of alphabets and alphabets\\n");
-    scanf("%d", &noalpha);
-    getchar();
+int main() {
+    // --- Input NFA ---
+    printf("Enter number of alphabets: ");
+    scanf("%d", &numAlphabets);
 
-    for (i = 0; i < noalpha; i++) {
-        alphabet[i] = getchar();
-        getchar();
+    printf("Enter the alphabets (no spaces): ");
+    for (int i = 0; i < numAlphabets; i++)
+        scanf(" %c", &alphabet[i]);
+
+    printf("Enter number of NFA states: ");
+    scanf("%d", &numStates);
+
+    printf("Enter start state: ");
+    scanf("%d", &startState);
+
+    printf("Enter number of final states: ");
+    scanf("%d", &numFinalStates);
+
+    printf("Enter final states: ");
+    for (int i = 0; i < numFinalStates; i++)
+        scanf("%d", &finalStates[i]);
+
+    printf("Enter number of transitions: ");
+    scanf("%d", &numTransitions);
+
+    printf("Enter transitions (from symbol to): e.g. 1 a 2\n");
+    for (int i = 0; i < numTransitions; i++) {
+        int from, to;
+        char sym;
+        scanf("%d %c %d", &from, &sym, &to);
+        addTransition(from, sym, to);
     }
 
-    printf("Enter the number of states?\\n");
-    scanf("%d", &nostate);
-    printf("Enter the start state?\\n");
-    scanf("%d", &start);
-    printf("Enter the number of final states?\\n");
-    scanf("%d", &nofinal);
+    printf("\n--- NFA Input Complete ---\n");
 
-    printf("Enter the final states?\\n");
-    for (i = 0; i < nofinal; i++) {
-        scanf("%d", &finalstate[i]);
-    }
+    // --- Initialize DFA ---
+    struct DFAState start = {0};
+    start.states[startState] = 1;
+    addDFAState(start);
 
-    printf("Enter no of transition?\\n");
-    scanf("%d", &notransition);
+    // --- Subset Construction Algorithm ---
+    for (int i = 0; i < dfaCount; i++) {
+        struct DFAState current = dfaStates[i];
 
-    printf("NOTE: [Transition is in the form-> qno alphabet qno]\\n");
-    printf("NOTE: [States number must be greater than zero]\\n");
-    printf("Enter transition?\\n");
+        for (int a = 0; a < numAlphabets; a++) {
+            struct DFAState next = {0};
 
-    for (i = 0; i < notransition; i++) {
-        scanf("%d %c %d", &r, &c, &s);
-        insert(r, c, s);
-    }
-
-    // Initialize hash table states to 0
-    for (i = 0; i < 20; i++) {
-        for (j = 0; j < 20; j++) {
-            hash[i].nst[j] = 0;
-        }
-    }
-
-    // --- NFA to DFA Conversion Logic ---
-
-    i = -1; // Reset i for the while loop
-
-    printf("\\nEquivalent DFA....\\n");
-    printf("\\n");
-    
-    printf("Trnsitions of DFA:\\n");
-    newstate.nst[start] = start;
-    insertdfastate(newstate);
-
-    while (i != complete) {
-        i++;
-        newstate = hash[i];
-
-        for (k = 0; k < noalpha; k++) {
-            c = 0;
-            for (j = 1; j <= nostate; j++) {
-                set[j] = 0;
-            }
-
-            // Find the new DFA state (set of NFA states) for transition on alphabet[k]
-            for (j = 1; j <= nostate; j++) {
-                if (newstate.nst[j] != 0) {
-                    temp = transition[j][k];
+            // Collect all reachable NFA states
+            for (int s = 1; s <= numStates; s++) {
+                if (current.states[s]) {
+                    struct Node* temp = transition[s][a];
                     while (temp != NULL) {
-                        if (set[temp->nst] == 0) {
-                            c++;
-                            set[temp->nst] = temp->nst;
-                        }
-                        temp = temp->link;
+                        next.states[temp->to] = 1;
+                        temp = temp->next;
                     }
                 }
             }
-            
-            // --- Output and Insert New DFA State ---
-            
-            tmpstate.nst[0] = 0; // Reset first element (not used for states 1 to nostate)
-            if (c > 0) {
-                // Populate tmpstate with the new set of states (from 'set')
-                for (m = 1; m <= nostate; m++) {
-                    tmpstate.nst[m] = set[m];
-                }
-                
-                // Insert and print the new transition
-                insertdfastate(tmpstate);
-                printnewstate(newstate);
-                printf("%c\\t", alphabet[k]);
-                printnewstate(tmpstate);
-                printf("\\n");
-            } else {
-                // Print transition to NULL/Trap State
-                printnewstate(newstate);
-                printf("%c\\t", alphabet[k]);
-                printf("NULL\\n");
-            }
+
+            // Print transition
+            printState(current);
+            printf(" --%c--> ", alphabet[a]);
+            int empty = 1;
+            for (int k = 1; k <= numStates; k++)
+                if (next.states[k]) empty = 0;
+            if (empty) printf("{} (Trap)");
+            else printState(next);
+            printf("\n");
+
+            // Add new DFA state
+            addDFAState(next);
         }
     }
 
     // --- Print DFA Summary ---
-
-    printf("\\nStates of DFA:\\n");
-    for (i = 0; i <= complete; i++) {
-        printnewstate(hash[i]);
+    printf("\nDFA States:\n");
+    for (int i = 0; i < dfaCount; i++) {
+        printState(dfaStates[i]);
+        printf("\t");
     }
 
-    printf("\\nAlphabets:\\n");
-    for (i = 0; i < noalpha; i++) {
-        printf("%c\\t", alphabet[i]);
-    }
+    printf("\n\nAlphabets:\n");
+    for (int i = 0; i < numAlphabets; i++)
+        printf("%c\t", alphabet[i]);
 
-    printf("\\nStart State:\\n");
-    printf("q%d", start);
-    
-    printf("\\n\\nFinal states:\\n");
-    findfinalstate();
-    printf("\\n");
+    printf("\nStart State: q%d\n", startState);
+
+    // Print DFA final states
+    printf("\nFinal States of DFA:\n");
+    for (int i = 0; i < dfaCount; i++) {
+        for (int j = 1; j <= numStates; j++) {
+            if (dfaStates[i].states[j]) {
+                for (int k = 0; k < numFinalStates; k++) {
+                    if (finalStates[k] == j) {
+                        printState(dfaStates[i]);
+                        printf("\t");
+                        goto next_state;
+                    }
+                }
+            }
+        }
+        next_state: ;
+    }
+    printf("\n");
+
+    return 0;
 }
