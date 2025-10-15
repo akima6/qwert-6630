@@ -1,0 +1,155 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+struct node {
+    int st;
+    struct node *link;
+};
+
+// Function prototypes
+void findclosure(int x, int sta);
+void insert_trantbl(int r, char c, int s);
+int findalpha(char c);
+void print_e_closure(int i);
+
+// Global and Static variables as seen in the code
+static int set[20], nostate, noalpha, s, notransition, r, buffer[20];
+char alphabet[20];
+static int e_closure[20][20] = {0};
+struct node *transition[20][20] = {NULL};
+
+// --- findclosure function ---
+void findclosure(int x, int sta) {
+    struct node *temp;
+    int i;
+
+    // Check if the current state 'x' has already been included in the e_closure
+    if (buffer[x]) {
+        return;
+    }
+
+    // Add state 'x' to the e_closure for state 'sta'
+    buffer[x] = 1; // Mark as visited for this closure calculation
+    e_closure[sta][e_closure[sta][0]++] = x;
+
+    // The 'e' is assumed to be the last character in the alphabet list
+    // 'noalpha - 1' is the index for 'e' (epsilon)
+    // Check if the character is 'e' (alphabet[noalpha-1]) AND if a transition exists (transition[x][noalpha-1] != NULL)
+    if (alphabet[noalpha - 1] == 'e' && transition[x][noalpha - 1] != NULL) {
+        temp = transition[x][noalpha - 1];
+        while (temp != NULL) {
+            // Recursively find the closure for the state reached via 'e'
+            findclosure(temp->st, sta);
+            temp = temp->link;
+        }
+    }
+}
+
+// --- insert_trantbl function ---
+void insert_trantbl(int r, char c, int s) {
+    int j;
+    struct node *temp;
+
+    // Find the index 'j' of the character 'c' in the alphabet array
+    j = findalpha(c);
+
+    // If 'findalpha' returns 999, the character was not found.
+    if (j == 999) {
+        printf("error\\n");
+        exit(0);
+    }
+
+    // Allocate memory for a new transition node
+    temp = (struct node *)malloc(sizeof(struct node));
+    temp->st = s; // Set the destination state
+    temp->link = transition[r][j]; // Link the new node to the current head of the list
+    transition[r][j] = temp; // Set the new node as the head of the list (Prepend)
+}
+
+// --- findalpha function ---
+int findalpha(char c) {
+    int i;
+    // Iterate through the alphabet array
+    for (i = 0; i < noalpha; i++) {
+        if (alphabet[i] == c) {
+            return i; // Return the index of the alphabet
+        }
+    }
+    return 999; // Return 999 if the alphabet is not found
+}
+
+// --- print_e_closure function ---
+void print_e_closure(int i) {
+    int j;
+    printf("{");
+    // e_closure[i][0] stores the number of elements in the closure
+    for (j = 1; j <= e_closure[i][0]; j++) {
+        // Print the states in the closure, separated by a comma (except possibly the last one)
+        printf("%d", e_closure[i][j]);
+        if (j < e_closure[i][0]) {
+            printf(",");
+        }
+    }
+    printf("}");
+}
+
+// --- main function ---
+void main() {
+    int i, j, k, m, t, n;
+    struct node *temp;
+    int c = 0;
+
+    // Get the number of alphabets
+    printf("Enter the number of alphabets?\\n");
+    scanf("%d", &noalpha);
+    getchar(); // Consume the newline character
+
+    printf("NOTE: - [ use letter e as epsilon]\\n");
+    printf("NOTE: - [e must be last character, if it is present]\\n");
+    printf("Enter alphabets?\\n");
+    for (i = 0; i < noalpha; i++) {
+        alphabet[i] = getchar();
+        getchar(); // Consume the newline character after each alphabet
+    }
+
+    // Get the number of states
+    printf("Enter the number of states?\\n");
+    scanf("%d", &nostate);
+
+    // Get the number of transitions
+    printf("Enter no of transition?\\n");
+    scanf("%d", &notransition);
+
+    printf("NOTE: - [Transition is in the form-> qno alphabet qno]\\n");
+    printf("NOTE: - [States number must be greater than zero]\\n");
+    printf("Enter transition?\\n");
+
+    // Read all transitions
+    for (i = 0; i < notransition; i++) {
+        char alpha_char;
+        scanf("%d %c %d", &r, &alpha_char, &s);
+        insert_trantbl(r, alpha_char, s);
+    }
+
+    printf("e-closure of states.......\\n");
+
+    // Calculate and print e-closures for all states
+    for (i = 1; i <= nostate; i++) {
+        // Reset buffer and e_closure count for the current state 'i'
+        for (j = 0; j < 20; j++) {
+            buffer[j] = 0;
+            e_closure[i][j] = 0;
+        }
+
+        // The first element e_closure[i][0] is used to store the count of states in the closure.
+        e_closure[i][0] = 1; // Initialize count to 1 (for the state itself)
+
+        // Find the e-closure starting from state 'i'
+        findclosure(i, i);
+
+        // Print the result
+        printf("\\ne_closure(q%d): ", i);
+        print_e_closure(i);
+    }
+    printf("\n");
+}
